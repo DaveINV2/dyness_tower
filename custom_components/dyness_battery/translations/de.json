@@ -1,0 +1,36 @@
+{
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Ladestand"
+      },
+      "battery_power": {
+        "name": "Leistung"
+      },
+      "battery_current": {
+        "name": "Strom"
+      },
+      "last_update": {
+        "name": "Letzte Aktualisierung"
+      },
+      "battery_capacity": {
+        "name": "Batteriekapazität"
+      },
+      "installed_power": {
+        "name": "Installierte PV-Leistung"
+      },
+      "communication_status": {
+        "name": "Verbindungsstatus"
+      },
+      "firmware_version": {
+        "name": "Firmware-Version"
+      },
+      "data_update_time": {
+        "name": "Daten-Zeitstempel"
+      },
+      "work_status": {
+        "name": "Betriebsstatus"
+      }
+    }
+  }
+}
