@@ -116,9 +116,12 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                 {"deviceSn": self.device_sn, "collectorSn": self.dongle_sn}
                             )
                             bind_code = str(bind_result.get("code", ""))
-                            if bind_code in ("0", "200"):
+                            if bind_code in ("0", "200", "500"):
                                 self._bound = True
-                                _LOGGER.debug("Dyness bindSn erfolgreich")
+                                if bind_code == "500":
+                                    _LOGGER.debug("Dyness bindSn: Gerät bereits gebunden (Code 500) – OK")
+                                else:
+                                    _LOGGER.debug("Dyness bindSn erfolgreich")
                             else:
                                 raise UpdateFailed(
                                     f"Dyness: Gerät konnte nicht gebunden werden (Code {bind_code}). "
