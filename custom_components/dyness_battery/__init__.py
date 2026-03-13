@@ -107,6 +107,32 @@ class DynessDataCoordinator(DataUpdateCoordinator):
             try:
                 async with async_timeout.timeout(30):
 
+                    # Gerät binden (einmalig beim Start)
+                    if not getattr(self, "_bound", False):
+                        try:
+                            bind_result = await _api_call(
+                                session, self.api_id, self.api_secret, self.api_base,
+                                "/v1/device/bindSn",
+                                {"deviceSn": self.device_sn, "collectorSn": self.dongle_sn}
+                            )
+                            bind_code = str(bind_result.get("code", ""))
+                            if bind_code in ("0", "200"):
+                                self._bound = True
+                                _LOGGER.debug("Dyness bindSn erfolgreich")
+                            else:
+                                raise UpdateFailed(
+                                    f"Dyness: Gerät konnte nicht gebunden werden (Code {bind_code}). "
+                                    f"Bitte prüfen: "
+                                    f"(1) API App ID und Secret korrekt? "
+                                    f"(2) deviceSn korrekt? (Format: R07ABCDEF123456-BMS) "
+                                    f"(3) collectorSn korrekt? (WiFi-Dongle SN, ohne -BMS, Format: R07ABCDEF123456) "
+                                    f"(4) Gerät online in der Dyness App?"
+                                )
+                        except UpdateFailed:
+                            raise
+                        except Exception as e:
+                            _LOGGER.warning("Dyness bindSn nicht erreichbar: %s", e)
+
                     # Statische Daten einmalig beim Start laden
                     if not self.station_info:
                         try:
@@ -206,7 +232,6 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     data["installedPower"]             = self.station_info.get("installedPower")
                     data["deviceCommunicationStatus"] = self.device_info.get("deviceCommunicationStatus")
                     data["firmwareVersion"]            = self.device_info.get("firmwareVersion")
-                    data["dataUpdateTime"]             = self.device_info.get("dataUpdateTime")
                     data["workStatus"]                 = self.storage_info.get("workStatus")
 
                     return data

@@ -25,9 +25,6 @@
       "firmware_version": {
         "name": "Firmware Version"
       },
-      "data_update_time": {
-        "name": "Data Timestamp"
-      },
       "work_status": {
         "name": "Work Status"
       }

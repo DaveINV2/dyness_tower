@@ -17,7 +17,6 @@ SENSORS = [
     ("installedPower",              "installed_power",      UnitOfPower.KILO_WATT,        SensorDeviceClass.POWER,   None,                          "mdi:solar-power"),
     ("deviceCommunicationStatus",   "communication_status", None,                         None,                      None,                          "mdi:wifi"),
     ("firmwareVersion",             "firmware_version",     None,                         None,                      None,                          "mdi:chip"),
-    ("dataUpdateTime",              "data_update_time",     None,                         None,                      None,                          "mdi:clock-check-outline"),
     ("workStatus",                  "work_status",          None,                         None,                      None,                          "mdi:home-battery"),
 ]
 

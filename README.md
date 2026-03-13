@@ -35,7 +35,6 @@ Eine Community-Integration für Home Assistant für **Dyness Batteriespeicher** 
 | Verbindungsstatus | Online / Offline | – |
 | Betriebsstatus | z.B. RunMode, StandBy, Charging | – |
 | Firmware-Version | Aktuelle Firmware | – |
-| Daten-Zeitstempel | Zeitstempel mit Zeitzone | – |
 
 ### Voraussetzungen
 
@@ -130,7 +129,6 @@ Das Script findest du im Repository unter `tools/dyness_test.py`.
 | Communication Status | Online / Offline | – |
 | Work Status | e.g. RunMode, StandBy, Charging | – |
 | Firmware Version | Current firmware version | – |
-| Data Timestamp | Timestamp with timezone | – |
 
 ### Step 1: Create API credentials in the Dyness Portal
 
