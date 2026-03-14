@@ -256,39 +256,45 @@ class DynessDataCoordinator(DataUpdateCoordinator):
 
                     # Statische Felder ergänzen
                     data["batteryCapacity"]           = self.station_info.get("batteryCapacity")
-                    data["installedPower"]             = self.station_info.get("installedPower")
                     data["deviceCommunicationStatus"] = self.device_info.get("deviceCommunicationStatus")
                     data["firmwareVersion"]            = self.device_info.get("firmwareVersion")
                     data["workStatus"]                 = self.storage_info.get("workStatus")
 
                     # realTime/data Felder ergänzen
                     # Gerätetyp anhand Point-IDs erkennen:
-                    # Junior Box → Point "800" = SOC (anderes Schema als Tower)
-                    # Tower      → Point "1400" = SOC
+                    # Junior Box / DL5.0C → Point "800" = SOC
+                    # Tower               → Point "1400" = SOC
                     rt = self.realtime_data
                     if "800" in rt:
-                        # Junior Box Schema
-                        data["soh"]               = rt.get("1200")   # SOH %
-                        data["tempMax"]           = rt.get("1800")   # Höchste Temperatur °C
-                        data["tempMin"]           = rt.get("2000")   # Niedrigste Temperatur °C
-                        data["cellVoltageMax"]    = rt.get("1300")   # Höchste Zellspannung V
-                        data["cellVoltageMin"]    = rt.get("1500")   # Niedrigste Zellspannung V
-                        data["energyChargeDay"]   = rt.get("7200")   # Heute geladen kWh
-                        data["energyDischargeDay"]= rt.get("7400")   # Heute entladen kWh
-                        data["energyChargeTotal"] = rt.get("7100")   # Gesamt geladen kWh
-                        data["energyDischargeTotal"]= rt.get("7300") # Gesamt entladen kWh
+                        # Junior Box / DL5.0C Schema
+                        data["packVoltage"]         = rt.get("600")    # Pack-Spannung V
+                        data["soh"]                 = rt.get("1200")   # SOH %
+                        data["tempMax"]             = rt.get("1800")   # Höchste Temperatur °C
+                        data["tempMin"]             = rt.get("2000")   # Niedrigste Temperatur °C
+                        data["cellVoltageMax"]      = rt.get("1300")   # Höchste Zellspannung V
+                        data["cellVoltageMin"]      = rt.get("1500")   # Niedrigste Zellspannung V
+                        data["energyChargeDay"]     = rt.get("7200")   # Heute geladen kWh
+                        data["energyDischargeDay"]  = rt.get("7400")   # Heute entladen kWh
+                        data["energyChargeTotal"]   = rt.get("7100")   # Gesamt geladen kWh
+                        data["energyDischargeTotal"]= rt.get("7300")   # Gesamt entladen kWh
                     elif "1400" in rt:
                         # Tower Schema
-                        data["soh"]               = rt.get("1500")   # SOH %
-                        data["tempMax"]           = rt.get("3000")   # Höchste Temperatur °C
-                        data["tempMin"]           = rt.get("3300")   # Niedrigste Temperatur °C
-                        data["cellVoltageMax"]    = rt.get("2400")   # Höchste Zellspannung V
-                        data["cellVoltageMin"]    = rt.get("2700")   # Niedrigste Zellspannung V
-                        data["cycleCount"]        = rt.get("1800")   # Zyklen
-                        data["energyChargeTotal"] = rt.get("1900")   # Kumuliert geladen kWh
-                        data["energyChargeDay"]   = None
-                        data["energyDischargeDay"]= None
-                        data["energyDischargeTotal"]= None
+                        data["soh"]                 = rt.get("1500")   # SOH %
+                        data["tempMax"]             = rt.get("3000")   # Höchste Temperatur °C
+                        data["tempMin"]             = rt.get("3300")   # Niedrigste Temperatur °C
+                        data["cellVoltageMax"]      = rt.get("2400")   # Höchste Zellspannung V
+                        data["cellVoltageMin"]      = rt.get("2700")   # Niedrigste Zellspannung V
+                        data["cycleCount"]          = rt.get("1800")   # Zyklen
+                        data["energyChargeTotal"]   = rt.get("1900")   # Kumuliert geladen kWh
+
+                    # Berechneter Sensor: Zellspannungsdifferenz
+                    try:
+                        vmax = float(data.get("cellVoltageMax") or 0)
+                        vmin = float(data.get("cellVoltageMin") or 0)
+                        if vmax > 0 and vmin > 0:
+                            data["cellVoltageDiff"] = round(vmax - vmin, 4)
+                    except (ValueError, TypeError):
+                        pass
 
                     return data
 

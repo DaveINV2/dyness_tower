@@ -19,6 +19,7 @@ Eine Community-Integration für Home Assistant für **Dyness Batteriespeicher** 
 |-------|--------|
 | Dyness Junior Box | ✅ Getestet |
 | Dyness Tower (non-pro) | ✅ Sollte funktionieren (Community-getestet) |
+| Dyness DL5.0C | ✅ Sollte funktionieren (Community-getestet) |
 | Andere Dyness-Modelle mit WiFi-Dongle | ⚠️ Nicht getestet – Feedback willkommen |
 
 > Die Integration erkennt den Gerätetyp automatisch anhand der API-Antwort und registriert nur die Sensoren, die für das jeweilige Gerät verfügbar sind.
@@ -32,9 +33,8 @@ Die folgenden Sensoren sind für alle Geräte verfügbar:
 | Ladestand (SOC) | Aktueller Ladestand | % |
 | Leistung | Lade-/Entladeleistung (+ = laden, − = entladen) | W |
 | Strom | Lade-/Entladestrom | A |
-| Batteriekapazität | Installierte Kapazität | kWh |
-| Installierte PV-Leistung | Installierte PV-Leistung | kW |
 | Letzte Aktualisierung | Zeitstempel der letzten Datenübertragung | – |
+| Batteriekapazität | Installierte Kapazität | kWh |
 | Verbindungsstatus | Online / Offline | – |
 | Betriebsstatus | z.B. RunMode, StandBy, Charging | – |
 | Firmware-Version | Aktuelle Firmware | – |
@@ -43,11 +43,13 @@ Zusätzliche Sensoren werden automatisch aktiviert, sofern das Gerät die Daten 
 
 | Sensor | Beschreibung | Einheit | Junior Box | Tower |
 |--------|-------------|---------|:---:|:---:|
+| Pack-Spannung | Gesamtspannung des Akkupacks | V | ✅ | – |
 | Batteriezustand (SOH) | State of Health | % | ✅ | ✅ |
 | Temperatur Max | Höchste Zellentemperatur | °C | ✅ | ✅ |
 | Temperatur Min | Niedrigste Zellentemperatur | °C | ✅ | ✅ |
 | Zellspannung Max | Höchste Einzelzellspannung | V | ✅ | ✅ |
 | Zellspannung Min | Niedrigste Einzelzellspannung | V | ✅ | ✅ |
+| Zellspannungsdifferenz | Max − Min Zellspannung (Gesundheitsindikator) | V | ✅ | ✅ |
 | Heute geladen | Geladene Energie heute | kWh | ✅ | – |
 | Heute entladen | Entladene Energie heute | kWh | ✅ | – |
 | Gesamt geladen | Kumuliert geladene Energie | kWh | ✅ | ✅ |
@@ -130,6 +132,7 @@ Das Script findest du im Repository unter `tools/dyness_test.py`.
 |--------|--------|
 | Dyness Junior Box | ✅ Tested |
 | Dyness Tower (non-pro) | ✅ Should work (community-tested) |
+| Dyness DL5.0C | ✅ Should work (community-tested) |
 | Other Dyness models with WiFi dongle | ⚠️ Not tested – feedback welcome |
 
 > The integration automatically detects the device type from the API response and only registers sensors that are available for the specific device.
@@ -143,9 +146,8 @@ The following sensors are available for all devices:
 | State of Charge (SOC) | Current battery level | % |
 | Power | Charge/discharge power (+ = charging, − = discharging) | W |
 | Current | Charge/discharge current | A |
-| Battery Capacity | Installed capacity | kWh |
-| Installed PV Power | Installed PV power | kW |
 | Last Update | Timestamp of last data transmission | – |
+| Battery Capacity | Installed capacity | kWh |
 | Communication Status | Online / Offline | – |
 | Work Status | e.g. RunMode, StandBy, Charging | – |
 | Firmware Version | Current firmware version | – |
@@ -154,11 +156,13 @@ Additional sensors are automatically enabled if the device provides the data:
 
 | Sensor | Description | Unit | Junior Box | Tower |
 |--------|-------------|------|:---:|:---:|
+| Pack Voltage | Total battery pack voltage | V | ✅ | – |
 | State of Health (SOH) | Battery health | % | ✅ | ✅ |
 | Temperature Max | Highest cell temperature | °C | ✅ | ✅ |
 | Temperature Min | Lowest cell temperature | °C | ✅ | ✅ |
 | Cell Voltage Max | Highest individual cell voltage | V | ✅ | ✅ |
 | Cell Voltage Min | Lowest individual cell voltage | V | ✅ | ✅ |
+| Cell Voltage Spread | Max − Min cell voltage (health indicator) | V | ✅ | ✅ |
 | Energy Charged Today | Energy charged today | kWh | ✅ | – |
 | Energy Discharged Today | Energy discharged today | kWh | ✅ | – |
 | Energy Charged Total | Cumulative energy charged | kWh | ✅ | ✅ |
@@ -229,8 +233,8 @@ Uses the **Dyness Open API v1.1** with HmacSHA1 authentication.
 Endpoints used:
 - `POST /v1/device/bindSn` – Bind device to API key
 - `POST /v1/device/getLastPowerDataBySn` – Current power data (every 5 min)
-- `POST /v1/device/realTime/data` – Real-time BMS data: SOH, temperatures, cell voltages, energy totals (every 5 min)
-- `POST /v1/station/info` – Station info (capacity, installed power)
+- `POST /v1/device/realTime/data` – Real-time BMS data: pack voltage, SOH, temperatures, cell voltages, energy totals, voltage spread (every 5 min)
+- `POST /v1/station/info` – Station info (battery capacity)
 - `POST /v1/device/household/storage/detail` – Device details (firmware, status)
 - `POST /v1/device/storage/list` – Work status (every 5 min)
 

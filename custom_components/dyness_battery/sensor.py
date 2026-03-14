@@ -10,21 +10,22 @@ from . import DOMAIN
 
 SENSORS = [
     # key, translation_key, unit, device_class, state_class, icon
-    ("soc",                   "battery_soc",            PERCENTAGE,                        SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT, "mdi:battery-high"),
-    ("realTimePower",         "battery_power",          UnitOfPower.WATT,                  SensorDeviceClass.POWER,       SensorStateClass.MEASUREMENT, "mdi:lightning-bolt"),
-    ("realTimeCurrent",       "battery_current",        UnitOfElectricCurrent.AMPERE,      SensorDeviceClass.CURRENT,     SensorStateClass.MEASUREMENT, "mdi:current-dc"),
-    ("createTime",            "last_update",            None,                               None,                          None,                          "mdi:clock-outline"),
-    ("batteryCapacity",       "battery_capacity",       UnitOfEnergy.KILO_WATT_HOUR,       SensorDeviceClass.ENERGY,      None,                          "mdi:battery"),
-    ("installedPower",        "installed_power",        UnitOfPower.KILO_WATT,             SensorDeviceClass.POWER,       None,                          "mdi:solar-power"),
-    ("deviceCommunicationStatus", "communication_status", None,                            None,                          None,                          "mdi:wifi"),
-    ("firmwareVersion",       "firmware_version",       None,                               None,                          None,                          "mdi:chip"),
-    ("workStatus",            "work_status",            None,                               None,                          None,                          "mdi:home-battery"),
-    # Neue Sensoren aus realTime/data
-    ("soh",                   "battery_soh",            PERCENTAGE,                        SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT, "mdi:battery-heart"),
-    ("tempMax",               "temp_max",               UnitOfTemperature.CELSIUS,         SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, "mdi:thermometer-high"),
-    ("tempMin",               "temp_min",               UnitOfTemperature.CELSIUS,         SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, "mdi:thermometer-low"),
-    ("cellVoltageMax",        "cell_voltage_max",       UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT, "mdi:sine-wave"),
-    ("cellVoltageMin",        "cell_voltage_min",       UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT, "mdi:sine-wave"),
+    ("soc",                   "battery_soc",            PERCENTAGE,                        SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT,      "mdi:battery-high"),
+    ("realTimePower",         "battery_power",          UnitOfPower.WATT,                  SensorDeviceClass.POWER,       SensorStateClass.MEASUREMENT,      "mdi:lightning-bolt"),
+    ("realTimeCurrent",       "battery_current",        UnitOfElectricCurrent.AMPERE,      SensorDeviceClass.CURRENT,     SensorStateClass.MEASUREMENT,      "mdi:current-dc"),
+    ("createTime",            "last_update",            None,                               None,                          None,                              "mdi:clock-outline"),
+    ("batteryCapacity",       "battery_capacity",       UnitOfEnergy.KILO_WATT_HOUR,       SensorDeviceClass.ENERGY,      None,                              "mdi:battery"),
+    ("deviceCommunicationStatus", "communication_status", None,                            None,                          None,                              "mdi:wifi"),
+    ("firmwareVersion",       "firmware_version",       None,                               None,                          None,                              "mdi:chip"),
+    ("workStatus",            "work_status",            None,                               None,                          None,                              "mdi:home-battery"),
+    # Sensoren aus realTime/data — geräteabhängig
+    ("packVoltage",           "pack_voltage",           UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT,      "mdi:sine-wave"),
+    ("soh",                   "battery_soh",            PERCENTAGE,                        SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT,      "mdi:battery-heart"),
+    ("tempMax",               "temp_max",               UnitOfTemperature.CELSIUS,         SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT,      "mdi:thermometer-high"),
+    ("tempMin",               "temp_min",               UnitOfTemperature.CELSIUS,         SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT,      "mdi:thermometer-low"),
+    ("cellVoltageMax",        "cell_voltage_max",       UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT,      "mdi:sine-wave"),
+    ("cellVoltageMin",        "cell_voltage_min",       UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT,      "mdi:sine-wave"),
+    ("cellVoltageDiff",       "cell_voltage_diff",      UnitOfElectricPotential.VOLT,      SensorDeviceClass.VOLTAGE,     SensorStateClass.MEASUREMENT,      "mdi:sine-wave"),
     ("energyChargeDay",       "energy_charge_day",      UnitOfEnergy.KILO_WATT_HOUR,       SensorDeviceClass.ENERGY,      SensorStateClass.TOTAL_INCREASING, "mdi:battery-charging"),
     ("energyDischargeDay",    "energy_discharge_day",   UnitOfEnergy.KILO_WATT_HOUR,       SensorDeviceClass.ENERGY,      SensorStateClass.TOTAL_INCREASING, "mdi:battery-minus"),
     ("energyChargeTotal",     "energy_charge_total",    UnitOfEnergy.KILO_WATT_HOUR,       SensorDeviceClass.ENERGY,      SensorStateClass.TOTAL_INCREASING, "mdi:battery-charging-100"),
@@ -38,7 +39,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # Basis-Sensoren immer registrieren, optionale nur wenn Daten vorhanden
     ALWAYS_REGISTER = {
         "soc", "realTimePower", "realTimeCurrent", "createTime",
-        "batteryCapacity", "installedPower", "deviceCommunicationStatus",
+        "batteryCapacity", "deviceCommunicationStatus",
         "firmwareVersion", "workStatus",
     }
     available_data = coordinator.data or {}
@@ -51,6 +52,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class DynessSensor(CoordinatorEntity, SensorEntity):
 
+    # Sensoren die 3 Nachkommastellen benötigen (z.B. 3.292 V, 0.006 V)
+    _PRECISION_3 = {"packVoltage", "cellVoltageMax", "cellVoltageMin", "cellVoltageDiff"}
+
     def __init__(self, coordinator, entry, key, translation_key, unit, device_class, state_class, icon):
         super().__init__(coordinator)
         self._key = key
@@ -61,6 +65,8 @@ class DynessSensor(CoordinatorEntity, SensorEntity):
         self._attr_state_class = state_class
         self._attr_has_entity_name = True
         self._attr_icon = icon
+        if key in self._PRECISION_3:
+            self._attr_suggested_display_precision = 3
 
     @property
     def device_info(self):
