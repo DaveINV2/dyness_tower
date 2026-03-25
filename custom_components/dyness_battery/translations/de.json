@@ -34,6 +34,9 @@
       "battery_soh": {
         "name": "Batteriezustand (SOH)"
       },
+      "temperature": {
+        "name": "Temperatur"
+      },
       "temp_max": {
         "name": "Temperatur Max"
       },
@@ -75,6 +78,24 @@
       },
       "remaining_kwh": {
         "name": "Verbleibende Energie"
+      },
+      "temp_mosfet": {
+        "name": "MOSFET-Temperatur"
+      },
+      "temp_bms_max": {
+        "name": "BMS-Temperatur Max"
+      },
+      "temp_bms_min": {
+        "name": "BMS-Temperatur Min"
+      },
+      "alarm_status_1": {
+        "name": "Alarmstatus 1"
+      },
+      "alarm_status_2": {
+        "name": "Alarmstatus 2"
+      },
+      "alarm_total": {
+        "name": "Alarmstatus"
       }
     }
   }

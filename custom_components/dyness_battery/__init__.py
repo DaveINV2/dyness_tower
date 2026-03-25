@@ -151,12 +151,13 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     if not self.device_sn:
                         try:
                             sl_result = await self._call(session, "/v1/device/storage/list", {})
-                            if str(sl_result.get("code", "")) in ("0", "200"):
+                            if str(sl_result.get("code", "")) in ("0", "200") or sl_result.get("code") == 0:
                                 device_list = (sl_result.get("data", {}) or {}).get("list", [])
                                 # Bevorzuge Geräte mit -BMS Suffix, nehme sonst erstes verfügbares
+                                # Akzeptiere -BMS, -BDU oder erstes verfügbares Gerät
                                 bms = (
                                     next((d for d in device_list
-                                          if str(d.get("deviceSn", "")).endswith("-BMS")), None)
+                                          if str(d.get("deviceSn", "")).endswith(("-BMS", "-BDU"))), None)
                                     or (device_list[0] if device_list else None)
                                 )
                                 if bms:
@@ -207,7 +208,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             result = await self._call(
                                 session, "/v1/station/info", {"deviceSn": self.device_sn}
                             )
-                            if str(result.get("code", "")) in ("0", "200"):
+                            if str(result.get("code", "")) in ("0", "200") or result.get("code") == 0:
                                 self.station_info = result.get("data", {}) or {}
                         except Exception as e:
                             _LOGGER.warning("Dyness station/info nicht erreichbar: %s", e)
@@ -220,7 +221,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             result = await self._call(
                                 session, "/v1/device/household/storage/detail", body
                             )
-                            if str(result.get("code", "")) in ("0", "200"):
+                            if str(result.get("code", "")) in ("0", "200") or result.get("code") == 0:
                                 self.device_info = result.get("data", {}) or {}
                         except Exception as e:
                             _LOGGER.warning("Dyness household/storage/detail nicht erreichbar: %s", e)
@@ -228,7 +229,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     # WorkStatus (bei jedem Update)
                     try:
                         result = await self._call(session, "/v1/device/storage/list", {})
-                        if str(result.get("code", "")) in ("0", "200"):
+                        if str(result.get("code", "")) in ("0", "200") or result.get("code") == 0:
                             device_list = (result.get("data", {}) or {}).get("list", [])
                             match = next(
                                 (d for d in device_list if d.get("deviceSn") == self.device_sn),
@@ -244,7 +245,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                         if self.dongle_sn:
                             body["collectorSn"] = self.dongle_sn
                         rt_result = await self._call(session, "/v1/device/realTime/data", body)
-                        if str(rt_result.get("code", "")) in ("0", "200"):
+                        if str(rt_result.get("code", "")) in ("0", "200") or rt_result.get("code") == 0:
                             raw = rt_result.get("data", []) or []
                             self.realtime_data = {
                                 item["pointId"]: item["pointValue"]
@@ -301,14 +302,19 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     if "800" in rt:
                         data["packVoltage"]           = rt.get("600")
                         data["soh"]                   = rt.get("1200")
-                        data["tempMax"]               = rt.get("1800")
-                        data["tempMin"]               = rt.get("2000")
+                        data["temp"]                  = rt.get("1800")   # Einziger Temperatursensor
                         data["cellVoltageMax"]         = rt.get("1300")
                         data["cellVoltageMin"]         = rt.get("1500")
                         data["energyChargeDay"]        = rt.get("7200")
                         data["energyDischargeDay"]     = rt.get("7400")
                         data["energyChargeTotal"]      = rt.get("7100")
                         data["energyDischargeTotal"]   = rt.get("7300")
+                        data["tempMosfet"]             = rt.get("2300")   # MOSFET Temperatur °C
+                        data["tempBmsMax"]             = rt.get("2800")   # BMS Temperatur Max °C
+                        data["tempBmsMin"]             = rt.get("3000")   # BMS Temperatur Min °C
+                        data["alarmStatus1"]           = rt.get("3200")   # Alarm Bitmask 1
+                        data["alarmStatus2"]           = rt.get("3300")   # Alarm Bitmask 2
+                        data["alarmTotal"]             = rt.get("4100")   # Gesamtalarm-Flag
                     elif "1400" in rt:
                         data["soh"]                   = rt.get("1500")
                         data["tempMax"]               = rt.get("3000")

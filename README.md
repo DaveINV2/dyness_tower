@@ -20,6 +20,7 @@ Eine Community-Integration für Home Assistant für **Dyness Batteriespeicher** 
 | Dyness Junior Box | ✅ Getestet |
 | Dyness Tower (non-pro) | ✅ Sollte funktionieren (Community-getestet) |
 | Dyness DL5.0C | ✅ Sollte funktionieren (Community-getestet) |
+| Dyness PowerHaus | ✅ Sollte funktionieren (Community-getestet) |
 | Andere Dyness-Modelle mit WiFi-Dongle | ⚠️ Nicht getestet – Feedback willkommen |
 
 > Die Integration erkennt das Gerät automatisch über die API und registriert nur die Sensoren, die für das jeweilige Gerät verfügbar sind.
@@ -37,22 +38,26 @@ Die folgenden Sensoren sind für alle Geräte verfügbar:
 
 Zusätzliche Sensoren werden automatisch aktiviert, sofern das Gerät die Daten liefert:
 
-| Sensor | Beschreibung | Einheit | Junior Box | Tower | DL5.0C |
-|--------|-------------|---------|:---:|:---:|:---:|
-| Pack-Spannung | Gesamtspannung des Akkupacks | V | ✅ | – | ✅ |
-| Batteriezustand (SOH) | State of Health | % | ✅ | ✅ | ✅ |
-| Temperatur Max | Höchste Zellentemperatur | °C | ✅ | ✅ | ✅ |
-| Temperatur Min | Niedrigste Zellentemperatur | °C | ✅ | ✅ | ✅ |
-| Zellspannung Max | Höchste Einzelzellspannung | V | ✅ | ✅ | ✅ |
-| Zellspannung Min | Niedrigste Einzelzellspannung | V | ✅ | ✅ | ✅ |
-| Zellspannungsdifferenz | Max − Min Zellspannung (Gesundheitsindikator) | mV | ✅ | ✅ | ✅ |
-| Heute geladen | Geladene Energie heute | kWh | ✅ | – | ✅ |
-| Heute entladen | Entladene Energie heute | kWh | ✅ | – | ✅ |
-| Gesamt geladen | Kumuliert geladene Energie | kWh | ✅ | ✅ | ✅ |
-| Gesamt entladen | Kumuliert entladene Energie | kWh | ✅ | – | ✅ |
-| Ladezyklen | Anzahl Batteriezyklen | – | – | ✅ | – |
-| Nutzbare Kapazität | Kapazität × SOH | kWh | ✅ | ✅ | ✅ |
-| Verbleibende Energie | Nutzbare Kapazität × SOC | kWh | ✅ | ✅ | ✅ |
+| Sensor | Beschreibung | Einheit | Junior Box | Tower | DL5.0C | PowerHaus |
+|--------|-------------|---------|:---:|:---:|:---:|:---:|
+| Pack-Spannung | Gesamtspannung des Akkupacks | V | ✅ | – | ✅ | ✅ |
+| Batteriezustand (SOH) | State of Health | % | ✅ | ✅ | ✅ | ✅ |
+| Temperatur Max | Höchste Zellentemperatur | °C | ✅ | ✅ | ✅ | ✅ |
+| Temperatur Min | Niedrigste Zellentemperatur | °C | ✅ | ✅ | ✅ | ✅ |
+| Zellspannung Max | Höchste Einzelzellspannung | V | ✅ | ✅ | ✅ | ✅ |
+| Zellspannung Min | Niedrigste Einzelzellspannung | V | ✅ | ✅ | ✅ | ✅ |
+| Zellspannungsdifferenz | Max − Min Zellspannung (Gesundheitsindikator) | mV | ✅ | ✅ | ✅ | ✅ |
+| Heute geladen | Geladene Energie heute | kWh | ✅ | – | ✅ | ✅ |
+| Heute entladen | Entladene Energie heute | kWh | ✅ | – | ✅ | ✅ |
+| Gesamt geladen | Kumuliert geladene Energie | kWh | ✅ | ✅ | ✅ | ✅ |
+| Gesamt entladen | Kumuliert entladene Energie | kWh | ✅ | – | ✅ | ✅ |
+| Ladezyklen | Anzahl Batteriezyklen | – | – | ✅ | – | ✅ |
+| Nutzbare Kapazität | Kapazität × SOH | kWh | ✅ | ✅ | ✅ | ✅ |
+| Verbleibende Energie | Nutzbare Kapazität × SOC | kWh | ✅ | ✅ | ✅ | ✅ |
+| MOSFET-Temperatur | MOSFET Temperatur | °C | ✅ | – | ✅ | ✅ |
+| BMS-Temperatur Max | BMS Temperatur Max | °C | ✅ | – | ✅ | ✅ |
+| BMS-Temperatur Min | BMS Temperatur Min | °C | ✅ | – | ✅ | ✅ |
+| Alarmstatus | Gesamtalarm (0 = OK) | – | ✅ | – | ✅ | ✅ |
 
 Folgende Sensoren sind unter **Diagnose** auf der Geräteseite verfügbar:
 
@@ -118,6 +123,14 @@ Du hast ein anderes Dyness-Modell mit WiFi-Dongle und möchtest es testen? Erste
 - Modellbezeichnung (z.B. `Tower T14`)
 - Ausgabe des API-Testscripts (siehe `tools/dyness_test.py`)
 
+### Community & Support
+
+| | |
+|---|---|
+| 💬 **Fragen & Ideen** | [GitHub Discussions](https://github.com/shopf/dyness_battery/discussions) |
+| 🐛 **Fehler melden** | [GitHub Issues](https://github.com/shopf/dyness_battery/issues) |
+| 🔌 **Neues Gerät** | Issue erstellen mit Ausgabe von `dyness_test.py` |
+
 ---
 
 ## 🇬🇧 English
@@ -129,6 +142,7 @@ Du hast ein anderes Dyness-Modell mit WiFi-Dongle und möchtest es testen? Erste
 | Dyness Junior Box | ✅ Tested |
 | Dyness Tower (non-pro) | ✅ Should work (community-tested) |
 | Dyness DL5.0C | ✅ Should work (community-tested) |
+| Dyness PowerHaus | ✅ Should work (community-tested) |
 | Other Dyness models with WiFi dongle | ⚠️ Not tested – feedback welcome |
 
 > The integration automatically detects the device via the API and only registers sensors available for that specific device.
@@ -146,22 +160,26 @@ The following sensors are available for all devices:
 
 Additional sensors are automatically enabled if the device provides the data:
 
-| Sensor | Description | Unit | Junior Box | Tower | DL5.0C |
-|--------|-------------|------|:---:|:---:|:---:|
-| Pack Voltage | Total battery pack voltage | V | ✅ | – | ✅ |
-| State of Health (SOH) | Battery health | % | ✅ | ✅ | ✅ |
-| Temperature Max | Highest cell temperature | °C | ✅ | ✅ | ✅ |
-| Temperature Min | Lowest cell temperature | °C | ✅ | ✅ | ✅ |
-| Cell Voltage Max | Highest individual cell voltage | V | ✅ | ✅ | ✅ |
-| Cell Voltage Min | Lowest individual cell voltage | V | ✅ | ✅ | ✅ |
-| Cell Voltage Spread | Max − Min cell voltage (health indicator) | mV | ✅ | ✅ | ✅ |
-| Energy Charged Today | Energy charged today | kWh | ✅ | – | ✅ |
-| Energy Discharged Today | Energy discharged today | kWh | ✅ | – | ✅ |
-| Energy Charged Total | Cumulative energy charged | kWh | ✅ | ✅ | ✅ |
-| Energy Discharged Total | Cumulative energy discharged | kWh | ✅ | – | ✅ |
-| Cycle Count | Number of charge cycles | – | – | ✅ | – |
-| Usable Capacity | Capacity × SOH | kWh | ✅ | ✅ | ✅ |
-| Energy Remaining | Usable capacity × SOC | kWh | ✅ | ✅ | ✅ |
+| Sensor | Description | Unit | Junior Box | Tower | DL5.0C | PowerHaus |
+|--------|-------------|------|:---:|:---:|:---:|:---:|
+| Pack Voltage | Total battery pack voltage | V | ✅ | – | ✅ | ✅ |
+| State of Health (SOH) | Battery health | % | ✅ | ✅ | ✅ | ✅ |
+| Temperature Max | Highest cell temperature | °C | ✅ | ✅ | ✅ | ✅ |
+| Temperature Min | Lowest cell temperature | °C | ✅ | ✅ | ✅ | ✅ |
+| Cell Voltage Max | Highest individual cell voltage | V | ✅ | ✅ | ✅ | ✅ |
+| Cell Voltage Min | Lowest individual cell voltage | V | ✅ | ✅ | ✅ | ✅ |
+| Cell Voltage Spread | Max − Min cell voltage (health indicator) | mV | ✅ | ✅ | ✅ | ✅ |
+| Energy Charged Today | Energy charged today | kWh | ✅ | – | ✅ | ✅ |
+| Energy Discharged Today | Energy discharged today | kWh | ✅ | – | ✅ | ✅ |
+| Energy Charged Total | Cumulative energy charged | kWh | ✅ | ✅ | ✅ | ✅ |
+| Energy Discharged Total | Cumulative energy discharged | kWh | ✅ | – | ✅ | ✅ |
+| Cycle Count | Number of charge cycles | – | – | ✅ | – | ✅ |
+| Usable Capacity | Capacity × SOH | kWh | ✅ | ✅ | ✅ | ✅ |
+| Energy Remaining | Usable capacity × SOC | kWh | ✅ | ✅ | ✅ | ✅ |
+| MOSFET Temperature | MOSFET temperature | °C | ✅ | – | ✅ | ✅ |
+| BMS Temperature Max | BMS temperature max | °C | ✅ | – | ✅ | ✅ |
+| BMS Temperature Min | BMS temperature min | °C | ✅ | – | ✅ | ✅ |
+| Alarm Status | Overall alarm (0 = OK) | – | ✅ | – | ✅ | ✅ |
 
 The following sensors are available under **Diagnostics** on the device page:
 
@@ -245,6 +263,14 @@ Endpoints used:
 Pull requests and issues are welcome! Especially needed:
 - Testing with other Dyness models
 - Improvements to sensor data
+
+## Community & Support
+
+| | |
+|---|---|
+| 💬 **Questions & Ideas** | [GitHub Discussions](https://github.com/shopf/dyness_battery/discussions) |
+| 🐛 **Bug Reports** | [GitHub Issues](https://github.com/shopf/dyness_battery/issues) |
+| 🔌 **New Device** | Open an Issue with your `dyness_test.py` output |
 
 ---
 

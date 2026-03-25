@@ -30,6 +30,49 @@
       },
       "work_status": {
         "name": "Work Status"
+      },
+      "temp_mosfet": {
+        "name": "MOSFET Temperature"
+      },
+      "temp_bms_max": {
+        "name": "BMS Temperature Max"
+      },
+      "temp_bms_min": {
+        "name": "BMS Temperature Min"
+      },
+      "alarm_status_1": {
+        "name": "Alarm Status 1"
+      },
+      "alarm_status_2": {
+        "name": "Alarm Status 2"
+      },
+      "alarm_total": {
+        "name": "Alarm Status"
+      },
+      "temperature": {
+        "name": "Temperature"
+      }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dyness Battery",
+        "description": "Enter your Dyness API credentials. The device will be discovered automatically.\n\nIf auto-discovery fails, use [manual setup]({manual_link}) to enter serial numbers.",
+        "data": {
+          "api_id": "API ID",
+          "api_secret": "API Secret"
+        }
+      },
+      "manual": {
+        "title": "Dyness Battery – Manual Setup",
+        "description": "Enter your API credentials and device serial numbers. Find them in the Dyness app under Device Management.",
+        "data": {
+          "api_id": "API ID",
+          "api_secret": "API Secret",
+          "device_sn": "Battery SN (e.g. R07ABCDEF123456-BMS)",
+          "dongle_sn": "Dongle SN (optional, e.g. R07ABCDEF123456)"
+        }
       }
     }
   }
