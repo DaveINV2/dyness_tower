@@ -440,17 +440,14 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     data["moduleCount"]  = len(self._module_sns)
 
                     try:
-                        bc  = _to_float(data.get("batteryCapacity"))
+                        bc  = _to_float(data.get("batteryCapacity"))  # bereits × n_modules
                         soc = _to_float(data.get("soc"))
                         soh = _to_float(data.get("soh"))
                         if bc is not None and soc is not None and soh is not None:
-                            # Gesamtkapazität = Einzelmodul × Modulanzahl
-                            total_bc  = round(bc * n_modules, 3)
-                            usable    = round(total_bc * (soh / 100), 3)
+                            usable    = round(bc * (soh / 100), 3)
                             remaining = round(usable * (soc / 100), 3)
-                            data["totalBatteryCapacity"] = total_bc
-                            data["usableKwh"]            = usable
-                            data["remainingKwh"]         = remaining
+                            data["usableKwh"]    = usable
+                            data["remainingKwh"] = remaining
                     except (ValueError, TypeError):
                         pass
 
