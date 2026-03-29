@@ -1,4 +1,4 @@
-"""Dyness Battery Integration für Home Assistant."""
+"""Dyness Battery Integration for Home Assistant."""
 import asyncio
 import hashlib
 import hmac
@@ -22,19 +22,19 @@ _LOGGER = logging.getLogger(__name__)
 DOMAIN = "dyness_battery"
 PLATFORMS = [Platform.SENSOR]
 
-# API Rate-Limit: max ~60 Calls/Stunde = 1/Minute
-# Pro Update: 3 Basis-Calls + 2 pro Sub-Modul
-# 1-2 Module → 5 Min, 3-4 Module → 10 Min, 5+ Module → 15 Min
+# API Rate-Limit: max ~60 Calls/Hour = 1/Minute
+# Per Update: 3 Base-Calls + 2 per Sub-Module
+# 1-2 Modules → 5 Min, 3-4 Modules → 10 Min, 5+ Modules → 15 Min
 _MIN_CALL_INTERVAL = 1.5
 _RATE_LIMIT_BACKOFF = 10
 _MAX_RETRIES = 3
 
-# Gültige BMS-Suffixe
+# Valid BMS Suffixes
 _BMS_SUFFIXES = ("-BMS", "-BDU")
 
 
 def _scan_interval_for_modules(n: int) -> timedelta:
-    """Dynamisches Scan-Intervall basierend auf Modulanzahl."""
+    """Dynamic scan interval based on module count."""
     if n <= 2:
         return timedelta(minutes=5)
     elif n <= 4:
@@ -85,7 +85,7 @@ def _to_float(v):
 
 
 def _is_success(result: dict) -> bool:
-    """Prüft ob API-Antwort erfolgreich — akzeptiert code als String oder Integer."""
+    """Checks if API response is successful — accepts code as String or Integer."""
     code = result.get("code")
     return str(code) in ("0", "200") or code == 0
 
@@ -129,14 +129,14 @@ class DynessDataCoordinator(DataUpdateCoordinator):
         self.device_info   = {}
         self.storage_info  = {}
         self.realtime_data = {}
-        self.module_data: dict[str, dict] = {}  # mid → Sensordaten
+        self.module_data: dict[str, dict] = {}  # mid → Sensor data
 
         self._bound: bool = False
         self._module_sns: list[str] = []
         self._last_call_time: float = 0.0
 
     async def _call(self, session: aiohttp.ClientSession, path: str, body_dict: dict) -> dict:
-        """Rate-limitierter API-Aufruf mit Retry bei HTTP 429."""
+        """Rate-limited API call with retry on HTTP 429."""
         elapsed = time.monotonic() - self._last_call_time
         if elapsed < _MIN_CALL_INTERVAL:
             await asyncio.sleep(_MIN_CALL_INTERVAL - elapsed)
@@ -150,7 +150,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     if response.status == 429:
                         wait = _RATE_LIMIT_BACKOFF * (2 ** attempt)
                         _LOGGER.warning(
-                            "Dyness: Rate-Limit (429) auf %s – Retry %d/%d in %ds",
+                            "Dyness: Rate-Limit (429) on %s – Retry %d/%d in %ds",
                             path, attempt + 1, _MAX_RETRIES, wait,
                         )
                         if attempt < _MAX_RETRIES:
@@ -161,7 +161,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     _LOGGER.debug("Dyness %s: %s", path, raw_text)
                     return json.loads(raw_text)
             except aiohttp.ClientError as e:
-                _LOGGER.warning("Dyness %s Verbindungsfehler (Versuch %d/%d): %s",
+                _LOGGER.warning("Dyness %s connection error (Attempt %d/%d): %s",
                                 path, attempt + 1, _MAX_RETRIES, e)
                 if attempt < _MAX_RETRIES:
                     await asyncio.sleep(2 ** attempt)
@@ -170,13 +170,13 @@ class DynessDataCoordinator(DataUpdateCoordinator):
         return {}
 
     def _update_scan_interval(self):
-        """Passt das Scan-Intervall dynamisch an die Modulanzahl an."""
+        """Dynamically adjusts the scan interval based on the number of modules."""
         n = len(self._module_sns)
         new_interval = _scan_interval_for_modules(n)
         if self.update_interval != new_interval:
             self.update_interval = new_interval
             _LOGGER.info(
-                "Dyness: %d Modul(e) erkannt → Scan-Intervall auf %d Min gesetzt",
+                "Dyness: %d module(s) detected → Scan interval set to %d min",
                 n, int(new_interval.total_seconds() / 60)
             )
 
@@ -185,7 +185,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
             try:
                 async with async_timeout.timeout(90):
 
-                    # ── Auto-Discovery BMS SN (einmalig) ─────────────────────
+                    # ── Auto-Discovery BMS SN (one-time) ─────────────────────
                     if not self.device_sn:
                         try:
                             sl_result = await self._call(session, "/v1/device/storage/list", {})
@@ -198,18 +198,18 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                 )
                                 if bms:
                                     self.device_sn = bms.get("deviceSn", "")
-                                    _LOGGER.info("Dyness: BMS SN ermittelt: %s", self.device_sn)
+                                    _LOGGER.info("Dyness: BMS SN determined: %s", self.device_sn)
                                 else:
                                     raise UpdateFailed(
-                                        "Dyness: Keine Geräte auf diesem API-Account. "
-                                        "Bitte API-Zugangsdaten prüfen."
+                                        "Dyness: No devices on this API account. "
+                                        "Please check API credentials."
                                     )
                         except UpdateFailed:
                             raise
                         except Exception as e:
-                            raise UpdateFailed(f"Dyness: BMS-Erkennung fehlgeschlagen: {e}") from e
+                            raise UpdateFailed(f"Dyness: BMS detection failed: {e}") from e
 
-                    # ── Gerät binden (einmalig) ───────────────────────────────
+                    # ── Bind device (one-time) ───────────────────────────────
                     if not self._bound:
                         try:
                             bind_body = {"deviceSn": self.device_sn}
@@ -220,22 +220,22 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             if bind_code in ("0", "200", "500") or bind_result.get("code") in (0, 500):
                                 self._bound = True
                                 if bind_code == "500" or bind_result.get("code") == 500:
-                                    _LOGGER.debug("Dyness bindSn: bereits gebunden – OK")
+                                    _LOGGER.debug("Dyness bindSn: already bound – OK")
                                 else:
-                                    _LOGGER.debug("Dyness bindSn erfolgreich")
+                                    _LOGGER.debug("Dyness bindSn successful")
                             else:
                                 _LOGGER.warning(
-                                    "Dyness bindSn: Code %s – Integration läuft trotzdem weiter.",
+                                    "Dyness bindSn: Code %s – Integration continues to run regardless.",
                                     bind_code
                                 )
                                 self._bound = True
                         except UpdateFailed:
                             raise
                         except Exception as e:
-                            _LOGGER.warning("Dyness bindSn nicht erreichbar: %s", e)
+                            _LOGGER.warning("Dyness bindSn unreachable: %s", e)
                             self._bound = True
 
-                    # ── Statische Daten (einmalig) ────────────────────────────
+                    # ── Static data (one-time) ────────────────────────────
                     if not self.station_info:
                         try:
                             result = await self._call(
@@ -244,7 +244,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             if _is_success(result):
                                 self.station_info = result.get("data", {}) or {}
                         except Exception as e:
-                            _LOGGER.warning("Dyness station/info nicht erreichbar: %s", e)
+                            _LOGGER.warning("Dyness station/info unreachable: %s", e)
 
                     if not self.device_info:
                         try:
@@ -257,9 +257,9 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             if _is_success(result):
                                 self.device_info = result.get("data", {}) or {}
                         except Exception as e:
-                            _LOGGER.warning("Dyness household/storage/detail nicht erreichbar: %s", e)
+                            _LOGGER.warning("Dyness household/storage/detail unreachable: %s", e)
 
-                    # ── WorkStatus (bei jedem Update) ─────────────────────────
+                    # ── WorkStatus (on each update) ─────────────────────────
                     try:
                         result = await self._call(session, "/v1/device/storage/list", {})
                         if _is_success(result):
@@ -270,9 +270,9 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                             )
                             self.storage_info = match
                     except Exception as e:
-                        _LOGGER.warning("Dyness storage/list nicht erreichbar: %s", e)
+                        _LOGGER.warning("Dyness storage/list unreachable: %s", e)
 
-                    # ── realTime/data BMS (bei jedem Update) ──────────────────
+                    # ── realTime/data BMS (on each update) ──────────────────
                     try:
                         body = {"deviceSn": self.device_sn}
                         if self.dongle_sn:
@@ -285,28 +285,28 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                 for item in raw
                                 if isinstance(item, dict) and "pointId" in item
                             }
-                            _LOGGER.debug("Dyness realTime/data: %d Punkte", len(self.realtime_data))
+                            _LOGGER.debug("Dyness realTime/data: %d points", len(self.realtime_data))
 
-                            # ── Sub-Modul Discovery via SUB Point ─────────────
+                            # ── Sub-Module Discovery via SUB Point ─────────────
                             if not self._module_sns:
                                 sub_raw = self.realtime_data.get("SUB", "")
                                 if sub_raw:
                                     candidates = [s.strip() for s in str(sub_raw).split(",") if s.strip()]
-                                    # Nur echte Modul-SNs — keine BMS-SNs
+                                    # Only real Module SNs — no BMS SNs
                                     candidates = [s for s in candidates if not s.endswith(_BMS_SUFFIXES)]
-                                    # Nur bei mehreren Modulen extra API-Calls machen
-                                    # Ein einzelnes Sub-Modul = Junior Box / einfaches Gerät
-                                    # → kein eigener realTime/data Abruf nötig
+                                    # Only make extra API calls for multiple modules
+                                    # A single sub-module = Junior Box / simple device
+                                    # → no separate realTime/data request necessary
                                     if len(candidates) > 1:
                                         self._module_sns = candidates
                                         _LOGGER.info(
-                                            "Dyness: %d Sub-Modul(e) entdeckt: %s",
+                                            "Dyness: %d Sub-module(s) detected: %s",
                                             len(self._module_sns), self._module_sns
                                         )
                                         self._update_scan_interval()
                                     else:
                                         _LOGGER.debug(
-                                            "Dyness: Einzelnes Sub-Modul %s – kein separater Abruf",
+                                            "Dyness: Single Sub-module %s – no separate request",
                                             candidates
                                         )
                         else:
@@ -315,9 +315,9 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                 rt_result.get("code"), rt_result.get("info")
                             )
                     except Exception as e:
-                        _LOGGER.warning("Dyness realTime/data nicht erreichbar: %s", e)
+                        _LOGGER.warning("Dyness realTime/data unreachable: %s", e)
 
-                    # ── Per-Modul realTime/data ───────────────────────────────
+                    # ── Per-Module realTime/data ───────────────────────────────
                     new_module_data: dict[str, dict] = {}
                     for sn in self._module_sns:
                         try:
@@ -333,15 +333,15 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                 }
                                 mid = sn.split("-")[-1] if "-" in sn else sn[-8:]
                                 new_module_data[mid] = _parse_module_points(sn, mid, m_pts)
-                                _LOGGER.debug("Dyness Modul %s: %d Punkte", mid, len(m_pts))
+                                _LOGGER.debug("Dyness Module %s: %d points", mid, len(m_pts))
                             else:
-                                _LOGGER.warning("Dyness Modul %s: Code %s", sn, m_result.get("code"))
+                                _LOGGER.warning("Dyness Module %s: Code %s", sn, m_result.get("code"))
                         except Exception as e:
-                            _LOGGER.warning("Dyness Modul %s nicht erreichbar: %s", sn, e)
+                            _LOGGER.warning("Dyness Module %s unreachable: %s", sn, e)
                     if new_module_data:
                         self.module_data = new_module_data
 
-                    # ── Leistungsdaten (bei jedem Update) ────────────────────
+                    # ── Power data (on each update) ────────────────────
                     body = {"pageNo": 1, "pageSize": 1, "deviceSn": self.device_sn}
                     if self.dongle_sn:
                         body["collectorSn"] = self.dongle_sn
@@ -351,11 +351,11 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     code = str(result.get("code", ""))
                     if code not in ("0", "200") and result.get("code") != 0:
                         _LOGGER.error(
-                            "Dyness getLastPowerDataBySn fehlgeschlagen – Code %s: %s (deviceSn=%s)",
+                            "Dyness getLastPowerDataBySn failed – Code %s: %s (deviceSn=%s)",
                             code, result.get("info"), self.device_sn
                         )
                         raise UpdateFailed(
-                            f"Dyness API Fehler (Code {code}): {result.get('info', 'Unbekannt')} "
+                            f"Dyness API Error (Code {code}): {result.get('info', 'Unknown')} "
                             f"– deviceSn={self.device_sn}"
                         )
 
@@ -364,29 +364,20 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                         valid = [d for d in data if d.get("soc") is not None]
                         if not valid:
                             _LOGGER.warning(
-                                "Dyness: Alle %d Datenpunkte haben soc=null (deviceSn=%s)",
+                                "Dyness: All %d data points have soc=null (deviceSn=%s)",
                                 len(data), self.device_sn
                             )
                         data = valid[-1] if valid else (data[-1] if data else {})
 
-                    # ── Statische Felder ──────────────────────────────────────
-                    # batteryCapacity aus station/info = Kapazität eines Moduls
-                    # Bei mehreren Modulen mit Modulanzahl multiplizieren
-                    bc_single = _to_float(self.station_info.get("batteryCapacity"))
-                    n_modules = max(len(self._module_sns), 1)
-                    if bc_single is not None and n_modules > 1:
-                        data["batteryCapacity"] = round(bc_single * n_modules, 3)
-                        _LOGGER.debug(
-                            "Dyness: batteryCapacity %s × %d Module = %s kWh",
-                            bc_single, n_modules, data["batteryCapacity"]
-                        )
-                    else:
-                        data["batteryCapacity"] = bc_single
+                    # ── Static fields ──────────────────────────────────────
+                    # FIXED: Tower API already reports total capacity, so we don't multiply it by modules.
+                    data["batteryCapacity"] = _to_float(self.station_info.get("batteryCapacity"))
+                    
                     data["deviceCommunicationStatus"] = self.device_info.get("deviceCommunicationStatus")
                     data["firmwareVersion"]            = self.device_info.get("firmwareVersion")
                     data["workStatus"]                 = self.storage_info.get("workStatus")
 
-                    # ── realTime/data Felder ──────────────────────────────────
+                    # ── realTime/data fields ──────────────────────────────────
                     rt = self.realtime_data
                     if "800" in rt:
                         # Junior Box / DL5.0C / PowerHaus Schema
@@ -414,8 +405,16 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                         data["cellVoltageMin"]         = rt.get("2700")
                         data["cycleCount"]             = rt.get("1800")
                         data["energyChargeTotal"]      = rt.get("1900")
+                        
+                        # ── NEW TOWER SENSORS ──
+                        data["chargeLimit"]            = rt.get("2000")
+                        data["dischargeLimit"]         = rt.get("2100")
+                        data["fanStatus"]              = rt.get("3800")
+                        data["heatingStatus"]          = rt.get("3900")
+                        data["maxCellBox"]             = rt.get("2500")
+                        data["minCellBox"]             = rt.get("2800")
 
-                    # ── Berechnete Felder ─────────────────────────────────────
+                    # ── Calculated fields ─────────────────────────────────────
                     try:
                         vmax = _to_float(data.get("cellVoltageMax"))
                         vmin = _to_float(data.get("cellVoltageMin"))
@@ -434,13 +433,13 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     except (ValueError, TypeError):
                         pass
 
-                    # ── Modul-Daten anhängen ──────────────────────────────────
+                    # ── Append module data ──────────────────────────────────
                     n_modules = max(len(self._module_sns), 1)
                     data["module_data"]  = self.module_data
                     data["moduleCount"]  = len(self._module_sns)
 
                     try:
-                        bc  = _to_float(data.get("batteryCapacity"))  # bereits × n_modules
+                        bc  = _to_float(data.get("batteryCapacity"))
                         soc = _to_float(data.get("soc"))
                         soh = _to_float(data.get("soh"))
                         if bc is not None and soc is not None and soh is not None:
@@ -456,32 +455,32 @@ class DynessDataCoordinator(DataUpdateCoordinator):
             except UpdateFailed:
                 raise
             except asyncio.TimeoutError as err:
-                _LOGGER.warning("Dyness API Timeout – wird beim nächsten Update erneut versucht")
+                _LOGGER.warning("Dyness API Timeout – will retry on next update")
                 raise UpdateFailed("Dyness API Timeout") from err
             except aiohttp.ClientError as err:
-                _LOGGER.error("Dyness Verbindungsfehler: %s", err)
-                raise UpdateFailed(f"Verbindungsfehler zur Dyness API: {err}") from err
+                _LOGGER.error("Dyness Connection error: %s", err)
+                raise UpdateFailed(f"Connection error to Dyness API: {err}") from err
             except Exception as err:
-                _LOGGER.error("Dyness unerwarteter Fehler: %s", err, exc_info=True)
-                raise UpdateFailed(f"Unerwarteter Fehler: {err}") from err
+                _LOGGER.error("Dyness unexpected error: %s", err, exc_info=True)
+                raise UpdateFailed(f"Unexpected error: {err}") from err
 
 
 def _parse_module_points(sn: str, mid: str, pts: dict) -> dict:
-    """Parst Sub-Modul Datenpunkte (DL5.0C Modul-Schema).
+    """Parses Sub-Module data points (DL5.0C Module-Schema).
     
-    Verifizierte Point-IDs aus echten DL5.0C Logs:
-      10300-11800 (Schritte 100) = Zellspannungen Cell 1-16
-      12400 = BMS Board Temperatur
-      12500 = Zelltemperatur Avg Cell 1-4
-      12600 = Zelltemperatur Avg Cell 5-8
-      13400 = Strom (A)
-      13500 = Modulspannung (V)
-      13600 = Verbleibende Kapazität (Ah)
-      13800 = Gesamtkapazität (Ah)
-      13900 = Ladezyklen
+    Verified Point-IDs from real DL5.0C Logs:
+      10300-11800 (steps of 100) = Cell voltages Cell 1-16
+      12400 = BMS Board Temperature
+      12500 = Cell temperature Avg Cell 1-4
+      12600 = Cell temperature Avg Cell 5-8
+      13400 = Current (A)
+      13500 = Module voltage (V)
+      13600 = Remaining Capacity (Ah)
+      13800 = Total capacity (Ah)
+      13900 = Charge cycles
       14000 = SOC % (Remain capacity 2)
       14100 = SOH % (Module total capacity 2)
-      14300-15200+ = Zell-Fehlercodes (0 = OK)
+      14300-15200+ = Cell fault codes (0 = OK)
     """
     def g(key): return pts.get(key) if pts.get(key) not in (None, "") else None
 
@@ -490,17 +489,17 @@ def _parse_module_points(sn: str, mid: str, pts: dict) -> dict:
         "module_id":    mid,
         "soc":          _to_float(g("14000")),   # SOC % — Remain capacity 2
         "soh":          _to_float(g("14100")),   # SOH % — Module total capacity 2
-        "cycle_count":  _to_float(g("13900")),   # Ladezyklen
-        "remain_ah":    _to_float(g("13600")),   # Verbleibende Kapazität Ah
-        "total_ah":     _to_float(g("13800")),   # Gesamtkapazität Ah
-        "bms_temp":     _to_float(g("12400")),   # BMS Board Temperatur °C
+        "cycle_count":  _to_float(g("13900")),   # Charge cycles
+        "remain_ah":    _to_float(g("13600")),   # Remaining Capacity Ah
+        "total_ah":     _to_float(g("13800")),   # Total capacity Ah
+        "bms_temp":     _to_float(g("12400")),   # BMS Board Temperature °C
         "cell_temp_1":  _to_float(g("12500")),   # Avg Temp Cell 1-4 °C
         "cell_temp_2":  _to_float(g("12600")),   # Avg Temp Cell 5-8 °C
-        "voltage":      _to_float(g("13500")),   # Modulspannung V
-        "current":      _to_float(g("13400")),   # Strom A
+        "voltage":      _to_float(g("13500")),   # Module voltage V
+        "current":      _to_float(g("13400")),   # Current A
     }
 
-    # Zellspannungen sammeln für Max/Min (10300, 10400, ... 11800)
+    # Collect cell voltages for Max/Min (10300, 10400, ... 11800)
     cells = []
     for i in range(1, 17):
         pid = str(10200 + i * 100)
@@ -512,7 +511,7 @@ def _parse_module_points(sn: str, mid: str, pts: dict) -> dict:
         d["cell_voltage_min"]       = min(cells)
         d["cell_voltage_spread_mv"] = round((max(cells) - min(cells)) * 1000, 1)
 
-    # Alarm: Zell-Fehlercodes 14300-15200+ prüfen (je 16 Zellen = 16 Points à 100)
+    # Alarm: Check Cell fault codes 14300-15200+ (16 cells each = 16 points at 100 intervals)
     alarm = False
     for i in range(16):
         pid = str(14300 + i * 100)

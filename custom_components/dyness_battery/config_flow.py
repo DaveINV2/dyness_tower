@@ -1,4 +1,4 @@
-"""Config Flow für Dyness Battery Integration."""
+"""Config Flow for Dyness Battery Integration."""
 import uuid
 import voluptuous as vol
 from homeassistant import config_entries
@@ -31,7 +31,7 @@ def _build_headers_cf(api_id, api_secret, body, path):
 
 
 async def _discover_device_sn(api_id: str, api_secret: str) -> str | None:
-    """Versucht BMS SN automatisch zu ermitteln."""
+    """Attempts to automatically discover the BMS SN."""
     url = "https://open-api.dyness.com/openapi/ems-device/v1/device/storage/list"
     body = "{}"
     headers = _build_headers_cf(api_id, api_secret, body, "/v1/device/storage/list")
@@ -60,7 +60,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
 
 
 class DynessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config Flow für Dyness Battery."""
+    """Config Flow for Dyness Battery."""
 
     VERSION = 1
 
@@ -70,18 +70,18 @@ class DynessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_sn = None
 
     async def async_step_user(self, user_input=None) -> FlowResult:
-        """Schritt 1: API-Zugangsdaten + Auto-Discovery."""
+        """Step 1: API Credentials + Auto-Discovery."""
         errors = {}
 
         if user_input is not None:
             self._api_id = user_input["api_id"]
             self._api_secret = user_input["api_secret"]
 
-            # Auto-Discovery versuchen
+            # Attempt Auto-Discovery
             sn = await _discover_device_sn(self._api_id, self._api_secret)
             if sn:
                 self._discovered_sn = sn
-                # SN-basierte unique_id — verhindert doppelte Einträge für dasselbe Gerät
+                # SN-based unique_id — prevents duplicate entries for the same device
                 await self.async_set_unique_id(f"{self._api_id}_{sn}")
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
@@ -93,7 +93,7 @@ class DynessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                 )
             else:
-                # Discovery fehlgeschlagen → manueller Fallback
+                # Discovery failed → manual fallback
                 errors["base"] = "discovery_failed"
 
         return self.async_show_form(
@@ -103,7 +103,7 @@ class DynessConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_manual(self, user_input=None) -> FlowResult:
-        """Schritt 2 (Fallback): Manuelle Eingabe der Seriennummern."""
+        """Step 2 (Fallback): Manual entry of serial numbers."""
         errors = {}
 
         if user_input is not None:

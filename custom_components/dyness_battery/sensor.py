@@ -1,4 +1,4 @@
-"""Sensoren für Dyness Battery Integration."""
+"""Sensors for Dyness Battery Integration."""
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
     PERCENTAGE, UnitOfPower, UnitOfElectricCurrent, UnitOfEnergy,
@@ -13,7 +13,7 @@ from . import DOMAIN
 _D = EntityCategory.DIAGNOSTIC
 
 SENSORS = [
-    # ── Haupt-Sensoren ────────────────────────────────────────────────────────
+    # ── Main Sensors ────────────────────────────────────────────────────────
     ("soc",                    "battery_soc",            PERCENTAGE,                   SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT,      "mdi:battery-high",           None, None),
     ("realTimePower",          "battery_power",          UnitOfPower.WATT,             SensorDeviceClass.POWER,       SensorStateClass.MEASUREMENT,      "mdi:lightning-bolt",         None, None),
     ("realTimeCurrent",        "battery_current",        UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT,     SensorStateClass.MEASUREMENT,      "mdi:current-dc",             None, None),
@@ -39,7 +39,16 @@ SENSORS = [
     ("alarmStatus1",           "alarm_status_1",         None,                         None,                          None,                              "mdi:alert-circle-outline",   None, None),
     ("alarmStatus2",           "alarm_status_2",         None,                         None,                          None,                              "mdi:alert-circle-outline",   None, None),
     ("alarmTotal",             "alarm_total",            None,                         None,                          None,                              "mdi:alert",                  None, None),
-    # ── Diagnose ─────────────────────────────────────────────────────────────
+    
+    # ── New Tower T14 Sensors ───────────────────────────────────────────────────
+    ("chargeLimit",            "charge_limit",           UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT,     SensorStateClass.MEASUREMENT,      "mdi:battery-arrow-up",       None, None),
+    ("dischargeLimit",         "discharge_limit",        UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT,     SensorStateClass.MEASUREMENT,      "mdi:battery-arrow-down",     None, None),
+    ("fanStatus",              "fan_status",             None,                         None,                          None,                              "mdi:fan",                    None, _D),
+    ("heatingStatus",          "heating_status",         None,                         None,                          None,                              "mdi:heating-coil",           None, _D),
+    ("maxCellBox",             "max_cell_box",           None,                         None,                          None,                              "mdi:archive-arrow-up",       None, _D),
+    ("minCellBox",             "min_cell_box",           None,                         None,                          None,                              "mdi:archive-arrow-down",     None, _D),
+
+    # ── Diagnostics ─────────────────────────────────────────────────────────────
     ("createTime",             "last_update",            None,                         None,                          None,                              "mdi:clock-outline",          None, _D),
     ("batteryCapacity",        "battery_capacity",       UnitOfEnergy.KILO_WATT_HOUR,  SensorDeviceClass.ENERGY,      None,                              "mdi:battery",                None, _D),
     ("deviceCommunicationStatus", "communication_status", None,                        None,                          None,                              "mdi:wifi",                   None, _D),
@@ -58,7 +67,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     available_data = coordinator.data or {}
 
-    # Pack-Level Sensoren
+    # Pack-Level Sensors
     async_add_entities([
         DynessSensor(coordinator, entry, key, translation_key,
                      unit, device_class, state_class, icon, precision, entity_category)
@@ -66,7 +75,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if key in ALWAYS_REGISTER or available_data.get(key) is not None
     ])
 
-    # Modul-Sensoren — dynamisch bei jedem neuen Modul registrieren
+    # Module-Sensors — register dynamically for each new module
     known_module_ids: set = set()
 
     def _add_new_modules() -> None:
@@ -87,10 +96,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if new_entities:
             async_add_entities(new_entities)
 
-    # Beim ersten Refresh bereits vorhandene Module registrieren
+    # Register existing modules on the first refresh
     _add_new_modules()
 
-    # Listener für spätere Updates
+    # Listener for future updates
     entry.async_on_unload(coordinator.async_add_listener(_add_new_modules))
 
 
@@ -132,7 +141,7 @@ class DynessSensor(CoordinatorEntity, SensorEntity):
         return self.coordinator.last_update_success and self.native_value is not None
 
 
-# ── Modul-Sensoren (pro Sub-Modul dynamisch registriert) ─────────────────────
+# ── Module Sensors (registered dynamically per sub-module) ─────────────────────
 # (data_key, translation_key, unit, device_class, state_class, icon, precision)
 MODULE_SENSORS = [
     ("soc",                  "module_soc",            PERCENTAGE,                   SensorDeviceClass.BATTERY,     SensorStateClass.MEASUREMENT,      "mdi:battery-high",          None),
@@ -151,7 +160,7 @@ MODULE_SENSORS = [
 
 
 class DynessModuleSensor(CoordinatorEntity, SensorEntity):
-    """Sensor für ein einzelnes Sub-Modul."""
+    """Sensor for a single sub-module."""
 
     def __init__(self, coordinator, entry, module_id, data_key,
                  translation_key, unit, device_class, state_class, icon, precision=None):
