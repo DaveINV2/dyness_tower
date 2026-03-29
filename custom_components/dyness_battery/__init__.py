@@ -22,22 +22,10 @@ _LOGGER = logging.getLogger(__name__)
 DOMAIN = "dyness_battery"
 PLATFORMS = [Platform.SENSOR]
 
-# API Rate-Limit: max ~60 Calls/Hour = 1/Minute
 _MIN_CALL_INTERVAL = 1.5
 _RATE_LIMIT_BACKOFF = 10
 _MAX_RETRIES = 3
-
-# Valid BMS Suffixes
 _BMS_SUFFIXES = ("-BMS", "-BDU")
-
-def _scan_interval_for_modules(n: int) -> timedelta:
-    """Dynamic scan interval based on module count."""
-    if n <= 2:
-        return timedelta(minutes=5)
-    elif n <= 4:
-        return timedelta(minutes=10)
-    else:
-        return timedelta(minutes=15)
 
 def _get_gmt_time() -> str:
     return formatdate(timeval=None, localtime=False, usegmt=True)
@@ -47,15 +35,8 @@ def _get_md5(body: str) -> str:
     return base64.b64encode(md5).decode("utf-8")
 
 def _get_signature(api_secret: str, content_md5: str, date: str, path: str) -> str:
-    string_to_sign = (
-        "POST" + "\n" + content_md5 + "\n" +
-        "application/json" + "\n" + date + "\n" + path
-    )
-    sig = hmac.new(
-        api_secret.encode("utf-8"),
-        string_to_sign.encode("utf-8"),
-        "sha1"
-    ).digest()
+    string_to_sign = f"POST\n{content_md5}\napplication/json\n{date}\n{path}"
+    sig = hmac.new(api_secret.encode("utf-8"), string_to_sign.encode("utf-8"), "sha1").digest()
     return base64.b64encode(sig).decode("utf-8")
 
 def _build_headers(api_id: str, api_secret: str, body: str, sign_path: str) -> dict:
@@ -76,22 +57,16 @@ def _to_float(v):
         return None
 
 def _is_success(result: dict) -> bool:
-    """Checks if API response is successful."""
     code = result.get("code")
     return str(code) in ("0", "200") or code == 0
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = DynessDataCoordinator(
-        hass,
-        entry.data["api_id"],
-        entry.data["api_secret"],
-        entry.data["api_base"],
-        device_sn=entry.data.get("device_sn"),
-        dongle_sn=entry.data.get("dongle_sn"),
+        hass, entry.data["api_id"], entry.data["api_secret"], entry.data["api_base"],
+        device_sn=entry.data.get("device_sn"), dongle_sn=entry.data.get("dongle_sn"),
     )
     await coordinator.async_config_entry_first_refresh()
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -104,41 +79,31 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class DynessDataCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, api_id, api_secret, api_base, device_sn=None, dongle_sn=None):
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=timedelta(minutes=5))
-        self.api_id     = api_id
-        self.api_secret = api_secret
-        self.api_base   = api_base
-        self.device_sn  = device_sn
-        self.dongle_sn  = dongle_sn
-        self.station_info  = {}
-        self.device_info   = {}
-        self.storage_info  = {}
-        self.realtime_data = {}
-        self.module_data: dict[str, dict] = {}
-        self._bound: bool = False
-        self._module_sns: list[str] = []
-        self._last_call_time: float = 0.0
+        self.api_id, self.api_secret, self.api_base = api_id, api_secret, api_base
+        self.device_sn, self.dongle_sn = device_sn, dongle_sn
+        self.station_info, self.device_info, self.storage_info = {}, {}, {}
+        self.realtime_data, self.module_data = {}, {}
+        self._bound_sns = set()
+        self._module_sns = []
+        self._last_call_time = 0.0
 
     async def _call(self, session: aiohttp.ClientSession, path: str, body_dict: dict) -> dict:
-        """Rate-limited API call with retry."""
         elapsed = time.monotonic() - self._last_call_time
         if elapsed < _MIN_CALL_INTERVAL:
             await asyncio.sleep(_MIN_CALL_INTERVAL - elapsed)
-        url = f"{self.api_base}/openapi/ems-device{path}"
-        body = json.dumps(body_dict, separators=(',', ':'))
+        url, body = f"{self.api_base}/openapi/ems-device{path}", json.dumps(body_dict, separators=(',', ':'))
         for attempt in range(_MAX_RETRIES + 1):
             self._last_call_time = time.monotonic()
             headers = _build_headers(self.api_id, self.api_secret, body, path)
             try:
                 async with session.post(url, headers=headers, data=body) as response:
                     if response.status == 429:
-                        wait = _RATE_LIMIT_BACKOFF * (2 ** attempt)
                         if attempt < _MAX_RETRIES:
-                            await asyncio.sleep(wait)
+                            await asyncio.sleep(_RATE_LIMIT_BACKOFF * (2 ** attempt))
                             continue
                         return {}
-                    raw_text = await response.text()
-                    return json.loads(raw_text)
-            except aiohttp.ClientError as e:
+                    return json.loads(await response.text())
+            except Exception:
                 if attempt < _MAX_RETRIES:
                     await asyncio.sleep(2 ** attempt)
                     continue
@@ -149,122 +114,73 @@ class DynessDataCoordinator(DataUpdateCoordinator):
         async with aiohttp.ClientSession() as session:
             try:
                 async with async_timeout.timeout(90):
-                    # Auto-Discovery BMS SN
+                    # Discovery & Initial Bind
                     if not self.device_sn:
-                        sl_result = await self._call(session, "/v1/device/storage/list", {})
-                        if _is_success(sl_result):
-                            device_list = (sl_result.get("data", {}) or {}).get("list", [])
-                            bms = next((d for d in device_list if str(d.get("device_sn", "")).endswith(_BMS_SUFFIXES)), None) or (device_list[0] if device_list else None)
-                            if bms:
-                                self.device_sn = bms.get("deviceSn", "")
-                            else:
-                                raise UpdateFailed("Dyness: No devices found.")
+                        res = await self._call(session, "/v1/device/storage/list", {})
+                        if _is_success(res):
+                            devs = (res.get("data", {}) or {}).get("list", [])
+                            bms = next((d for d in devs if str(d.get("deviceSn", "")).endswith(_BMS_SUFFIXES)), None) or (devs[0] if devs else None)
+                            self.device_sn = bms.get("deviceSn", "") if bms else None
 
-                    # Bind device
-                    if not self._bound:
-                        bind_body = {"deviceSn": self.device_sn}
-                        if self.dongle_sn:
-                            bind_body["collectorSn"] = self.dongle_sn
-                        await self._call(session, "/v1/device/bindSn", bind_body)
-                        self._bound = True
+                    if self.device_sn and self.device_sn not in self._bound_sns:
+                        await self._call(session, "/v1/device/bindSn", {"deviceSn": self.device_sn})
+                        self._bound_sns.add(self.device_sn)
 
-                    # Static info
-                    if not self.station_info:
-                        result = await self._call(session, "/v1/station/info", {"deviceSn": self.device_sn})
-                        if _is_success(result):
-                            self.station_info = result.get("data", {}) or {}
-
-                    if not self.device_info:
-                        body = {"deviceSn": self.device_sn}
-                        if self.dongle_sn:
-                            body["collectorSn"] = self.dongle_sn
-                        result = await self._call(session, "/v1/device/household/storage/detail", body)
-                        if _is_success(result):
-                            self.device_info = result.get("data", {}) or {}
-
-                    # Real-time update
-                    body = {"deviceSn": self.device_sn}
-                    if self.dongle_sn:
-                        body["collectorSn"] = self.dongle_sn
-                    rt_result = await self._call(session, "/v1/device/realTime/data", body)
-                    if _is_success(rt_result):
-                        raw = rt_result.get("data", []) or []
+                    # Get Master Data
+                    rt_res = await self._call(session, "/v1/device/realTime/data", {"deviceSn": self.device_sn})
+                    if _is_success(rt_res):
+                        raw = rt_res.get("data", []) or []
                         self.realtime_data = {item["pointId"]: item["pointValue"] for item in raw if isinstance(item, dict)}
                         
-                        # Module Discovery
-                        if not self._module_sns:
-                            sub_raw = self.realtime_data.get("SUB", "")
-                            if sub_raw:
-                                candidates = [s.strip() for s in str(sub_raw).split(",") if s.strip()]
-                                self._module_sns = [s for s in candidates if not s.endswith(_BMS_SUFFIXES)]
+                        # Detect & Auto-Bind Modules
+                        sub_raw = self.realtime_data.get("SUB", "")
+                        if sub_raw:
+                            candidates = [s.strip() for s in str(sub_raw).split(",") if s.strip()]
+                            self._module_sns = [s for s in candidates if not s.endswith(_BMS_SUFFIXES)]
+                            for sn in self._module_sns:
+                                if sn not in self._bound_sns:
+                                    _LOGGER.info("Dyness: Auto-binding module %s", sn)
+                                    await self._call(session, "/v1/device/bindSn", {"deviceSn": sn})
+                                    self._bound_sns.add(sn)
 
-                    # Per-Module data (Cells 1-30)
+                    # Fetch Per-Module Cells
                     new_module_data = {}
                     for sn in self._module_sns:
-                        m_result = await self._call(session, "/v1/device/realTime/data", {"deviceSn": sn})
-                        if _is_success(m_result):
-                            m_raw = m_result.get("data", []) or []
-                            m_pts = {item["pointId"]: item["pointValue"] for item in m_raw if isinstance(item, dict)}
+                        m_res = await self._call(session, "/v1/device/realTime/data", {"deviceSn": sn})
+                        if _is_success(m_res):
                             mid = sn.split("-")[-1] if "-" in sn else sn[-8:]
-                            new_module_data[mid] = _parse_module_points(sn, mid, m_pts)
+                            new_module_data[mid] = _parse_module_points(sn, mid, {item["pointId"]: item["pointValue"] for item in m_res.get("data", [])})
                     self.module_data = new_module_data
 
-                    # Power Data
-                    body = {"pageNo": 1, "pageSize": 1, "deviceSn": self.device_sn}
-                    if self.dongle_sn:
-                        body["collectorSn"] = self.dongle_sn
-                    result = await self._call(session, "/v1/device/getLastPowerDataBySn", body)
-                    data = result.get("data", {})
-                    if isinstance(data, list):
-                        data = data[-1] if data else {}
-
-                    # Mappings & Capacity Fix
+                    # Static Info & Final Mapping
+                    if not self.station_info:
+                        res = await self._call(session, "/v1/station/info", {"deviceSn": self.device_sn})
+                        self.station_info = res.get("data", {}) or {}
+                    
+                    res = await self._call(session, "/v1/device/getLastPowerDataBySn", {"pageNo": 1, "pageSize": 1, "deviceSn": self.device_sn})
+                    data = res.get("data", [{}])[-1] if isinstance(res.get("data"), list) else {}
+                    
                     data["batteryCapacity"] = _to_float(self.station_info.get("batteryCapacity"))
-                    data["firmwareVersion"] = self.device_info.get("firmwareVersion")
-                    data["workStatus"] = self.storage_info.get("workStatus")
-
                     rt = self.realtime_data
-                    if "1400" in rt: # Tower Schema
-                        data["soh"] = rt.get("1500")
-                        data["tempMax"] = rt.get("3000")
-                        data["tempMin"] = rt.get("3300")
-                        data["cellVoltageMax"] = rt.get("2400")
-                        data["cellVoltageMin"] = rt.get("2700")
-                        data["cycleCount"] = rt.get("1800")
-                        data["chargeLimit"] = rt.get("2000")
-                        data["dischargeLimit"] = rt.get("2100")
-                        data["fanStatus"] = rt.get("3800")
-                        data["heatingStatus"] = rt.get("3900")
-                        data["maxCellBox"] = rt.get("2500")
-                        data["minCellBox"] = rt.get("2800")
-
-                    # Calculations
-                    vmax = _to_float(data.get("cellVoltageMax"))
-                    vmin = _to_float(data.get("cellVoltageMin"))
-                    if vmax and vmin:
-                        data["cellVoltageDiffMv"] = round((vmax - vmin) * 1000, 1)
-
+                    if "1400" in rt:
+                        for k, v in {"soh":"1500","tempMax":"3000","tempMin":"3300","cellVoltageMax":"2400","cellVoltageMin":"2700","cycleCount":"1800","chargeLimit":"2000","dischargeLimit":"2100","fanStatus":"3800","heatingStatus":"3900","maxCellBox":"2500","minCellBox":"2800"}.items():
+                            data[k] = rt.get(v)
+                    
+                    vmax, vmin = _to_float(data.get("cellVoltageMax")), _to_float(data.get("cellVoltageMin"))
+                    if vmax and vmin: data["cellVoltageDiffMv"] = round((vmax - vmin) * 1000, 1)
                     data["module_data"] = self.module_data
                     return data
+            except Exception as e: raise UpdateFailed(f"Error: {e}")
 
-            except Exception as err:
-                raise UpdateFailed(f"Unexpected error: {err}") from err
-
-def _parse_module_points(sn: str, mid: str, pts: dict) -> dict:
-    """Parses Sub-Module data including all 30 individual cell voltages."""
+def _parse_module_points(sn, mid, pts):
     def g(key): return pts.get(key) if pts.get(key) not in (None, "") else None
     d = {"sn": sn, "module_id": mid, "voltage": _to_float(g("13500")), "current": _to_float(g("13400"))}
-    cells = []
-    for i in range(1, 31):
-        pid = str(11100 + i * 100)
-        val = _to_float(pts.get(pid))
-        if val is not None:
-            d[f"cell_{i:02d}"] = val
-            cells.append(val)
-    if cells:
-        d["cell_voltage_max"] = max(cells)
-        d["cell_voltage_min"] = min(cells)
-        d["cell_voltage_spread_mv"] = round((max(cells) - min(cells)) * 1000, 1)
-    d["cell_temp_1"] = _to_float(g("14300"))
-    d["cell_temp_2"] = _to_float(g("14400"))
+    cells = [_to_float(pts.get(str(11100 + i * 100))) for i in range(1, 31)]
+    for i, v in enumerate(cells, 1):
+        if v is not None: d[f"cell_{i:02d}"] = v
+    if any(c is not None for c in cells):
+        valid = [c for c in cells if c is not None]
+        d["cell_voltage_max"], d["cell_voltage_min"] = max(valid), min(valid)
+        d["cell_voltage_spread_mv"] = round((max(valid) - min(valid)) * 1000, 1)
+    d["cell_temp_1"], d["cell_temp_2"] = _to_float(g("14300")), _to_float(g("14400"))
     return d
