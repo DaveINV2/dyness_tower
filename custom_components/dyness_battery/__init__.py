@@ -130,7 +130,7 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                     if _is_success(rt_res):
                         raw = rt_res.get("data", []) or []
                         self.realtime_data = {item["pointId"]: item["pointValue"] for item in raw if isinstance(item, dict)}
-                        
+
                         # Module Detection & Auto-Binding (API fix)
                         sub_raw = self.realtime_data.get("SUB", "")
                         if sub_raw:
@@ -142,6 +142,9 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                                     await self._call(session, "/v1/device/bindSn", {"deviceSn": sn})
                                     # Add to bound set immediately so we don't spam retries on the next loop
                                     self._bound_sns.add(sn)
+                    else:
+                        # NEW FALLBACK: If BDU data fails (session timeout), clear cache to force re-bind next loop
+                        self._bound_sns.discard(self.device_sn)
 
                     # Detailed Module Parsing
                     new_module_data = {}
@@ -150,12 +153,16 @@ class DynessDataCoordinator(DataUpdateCoordinator):
                         if _is_success(m_res):
                             mid = sn.split("-")[-1] if "-" in sn else sn[-8:]
                             new_module_data[mid] = _parse_module_points(sn, mid, {item["pointId"]: item["pointValue"] for item in m_res.get("data", [])})
+                        else:
+                            # NEW FALLBACK: If module data fails, clear cache to force re-bind next loop
+                            self._bound_sns.discard(sn)
+                            
                     self.module_data = new_module_data
 
                     # Main Unit Data Mapping (Insulation removed)
                     res = await self._call(session, "/v1/device/getLastPowerDataBySn", {"pageNo": 1, "pageSize": 1, "deviceSn": self.device_sn})
                     data = res.get("data", [{}])[-1] if isinstance(res.get("data"), list) else {}
-                    
+
                     rt = self.realtime_data
                     mapping = {
                         "packVoltage": "1100", "soh": "1500", "tempMax": "3000", "tempMin": "3300",
@@ -192,7 +199,7 @@ def _parse_module_points(sn, mid, pts):
         for i in range(1, 31):
             val = pts.get(str(11100 + i * 100))
             cells.append(_to_float(val))
-            
+
     # FALLBACK: DL5.0C / Legacy Models (Check if point 10300 exists)
     elif pts.get("10300") is not None:
         for i in range(1, 17): 
@@ -207,6 +214,6 @@ def _parse_module_points(sn, mid, pts):
     valid_cells = [c for c in cells if c is not None]
     if valid_cells:
         d["cell_voltage_spread_mv"] = round((max(valid_cells) - min(valid_cells)) * 1000, 1)
-        
+
     d["cell_temp_1"], d["cell_temp_2"] = _to_float(g("14300")), _to_float(g("14400"))
     return d
